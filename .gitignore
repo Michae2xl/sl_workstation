@@ -1,0 +1,37 @@
+# Personal data never goes into the repository.
+# Each person's board lives in ~/Library/Application Support/Shielded Labs Workstation,
+# but if someone works with their data beside the code, these stay out anyway.
+board.json
+board.*.json
+ticks.json
+notes.json
+manual.json
+prefs.json
+edits.json
+ai.json
+connections.json
+board.html
+open-items.md
+backup-pt/
+tools/app/last-start.json
+tools/app/.installed.sha
+
+# The same files under the names used before the code was in English
+dados.json
+dados.*.json
+marcados.json
+notas.json
+ajustes.json
+ia.json
+conexoes.json
+painel.html
+pendentes.md
+
+# Build output
+dist/
+*.zip
+
+# macOS and editors
+.DS_Store
+__pycache__/
+*.pyc

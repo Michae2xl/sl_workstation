@@ -19,6 +19,8 @@ MANUAL = FOLDER / "manual.json"
 OUTPUT = FOLDER / "board.html"
 OPEN_ITEMS_MD = FOLDER / "open-items.md"
 LOGO = HERE / "logo.png"
+# What a new user starts with besides an empty board: public reference only (projects and links).
+STARTER = HERE / "starter-board.json"
 # The welcome picture, and the same scene with the cat walking: a light video and, as a fallback,
 # a GIF. All three are optional: a missing file simply leaves its place empty.
 WELCOME_IMAGE = HERE / "welcome.jpg"
@@ -150,10 +152,16 @@ def page_with(board: dict) -> str:
     )
 
 
+def first_board() -> dict:
+    """The empty board, with the project reference of the starter file when there is one."""
+    project = read_json(STARTER, {}).get("project")
+    return {**EMPTY_BOARD, "project": project if isinstance(project, dict) else {}}
+
+
 def main() -> int:
     if len(sys.argv) == 3 and sys.argv[1] == "--empty":
         try:
-            Path(sys.argv[2]).write_text(page_with(EMPTY_BOARD), encoding="utf-8")
+            Path(sys.argv[2]).write_text(page_with(first_board()), encoding="utf-8")
         except (OSError, ValueError) as error:
             print(f"Error: {error}", file=sys.stderr)
             return 1

@@ -2319,6 +2319,29 @@
       .hero:hover .head .cp {
         display: inline-block;
       }
+      /* A page with no details yet keeps its "Edit details" button in view. */
+      .hero .head .cp.unset {
+        display: inline-block;
+      }
+      /* The details form takes the full width of the header, under the title and the tiles. */
+      .hero > .form.details {
+        grid-column: 1 / -1;
+        margin-top: 12px;
+        padding: 12px 0 0;
+        border-top: 1px solid var(--rule);
+      }
+      .hero > .form.details .fld {
+        flex: 0 0 200px;
+      }
+      .hero > .form.details .fld.w {
+        flex: 1 1 260px;
+      }
+      .hero .form.details .hint {
+        flex-basis: 100%;
+        margin: 0;
+        color: var(--ink-3);
+        font-size: 12px;
+      }
       /* Narrow content: the tiles go back under the text. */
       @media (max-width: 1000px) {
         .hero {
@@ -4299,8 +4322,92 @@
                 el("p", { class: "crumb", "data-cat": category(crumb), text: crumb }),
                 el("h1", { text: nameOf(state.view, title) }),
               ]),
+              detailsButton(),
             ]),
           ];
+        }
+        // ----- Details in the header of a page, set by the user (edits.json "headers") -----
+        // A project, a deliverable or a team chat shows a type, a description, a link or its members.
+        // They come from the board file, and the user can set or change them here.
+        function headerOf(key) {
+          return (edits.headers || {})[key] || {};
+        }
+        function hasDetails(key) {
+          return /^(proj|del|own):/.test(key || "");
+        }
+        function detailsButton() {
+          if (!served || !hasDetails(state.view) || state.editingHeader === state.view) return null;
+          var unset = state.view.indexOf("own:") === 0 && !Object.keys(headerOf(state.view)).length;
+          return el("button", {
+            class: "cp" + (unset ? " unset" : ""),
+            type: "button",
+            text: "Edit details",
+            title: "Set what this header shows",
+            on: {
+              click: function () {
+                state.editingHeader = state.view;
+                render();
+              },
+            },
+          });
+        }
+        // kind: "project" (type, description, link), "deliverable" (description) or "group" (description, members).
+        function detailsForm(kind, shown) {
+          if (!served || state.editingHeader !== state.view) return null;
+          var key = state.view;
+          function input(value, limit, placeholder) {
+            var c = el("input", { type: "text", class: "t", maxlength: String(limit), placeholder: placeholder || "" });
+            c.value = value || "";
+            return c;
+          }
+          var type = input(shown.type, 40, "For example: Research");
+          var description = input(shown.description, 400, "One sentence on what this is");
+          var url = input(shown.url, 300, "https://");
+          var members = input(shown.members, 600, "Ana, Bo");
+          var hint = el("p", { class: "hint", text: "" });
+          function closeForm() {
+            state.editingHeader = null;
+            render();
+          }
+          function saveDetails() {
+            var link = url.value.trim();
+            if (kind === "project" && link && !/^https:\/\/[^\s]+$/.test(link)) {
+              hint.textContent = "The link must start with https://";
+              url.focus();
+              return;
+            }
+            var details = {};
+            if (kind === "project" && type.value.trim()) details.type = type.value.trim();
+            if (description.value.trim()) details.description = description.value.trim();
+            if (kind === "project" && link) details.url = link;
+            if (kind === "group" && members.value.trim()) details.members = members.value.trim();
+            var headers = Object.assign({}, edits.headers || {});
+            if (Object.keys(details).length) headers[key] = details;
+            else delete headers[key];
+            edits.headers = headers;
+            state.editingHeader = null;
+            saveEdits();
+          }
+          var controls = [type, description, url, members];
+          controls.forEach(function (c) {
+            c.addEventListener("keydown", function (ev) {
+              if (ev.key === "Enter") saveDetails();
+              if (ev.key === "Escape") closeForm();
+            });
+          });
+          var first = kind === "project" ? type : description;
+          setTimeout(function () {
+            first.focus();
+          }, 0);
+          return el("div", { class: "form details" }, [
+            kind === "project" ? fld("Type", type) : null,
+            fld("Description", description, true),
+            kind === "project" ? fld("Link", url, true) : null,
+            kind === "group" ? fld("Members", members, true) : null,
+            el("button", { class: "copy", type: "button", text: "Save", on: { click: saveDetails } }),
+            el("button", { class: "cp", type: "button", text: "Cancel", on: { click: closeForm } }),
+            hint,
+          ]);
         }
         // Each kind of page has its own colour, shown on the label and on the top edge of the header.
         function category(crumb) {
@@ -4904,6 +5011,12 @@
           );
           if (e.summary) wrap.appendChild(el("p", { class: "lead", text: e.summary }));
           if (e.members) wrap.appendChild(people(e.members));
+          var ownText = /^Added by you\./.test(e.summary || "");
+          var deliverableForm = detailsForm(isGroup ? "group" : "deliverable", {
+            description: ownText ? "" : e.summary,
+            members: e.members,
+          });
+          if (deliverableForm) wrap.appendChild(deliverableForm);
           var inHeader = D.items.filter(function (p) {
             return p.channel === e.id;
           });
@@ -5028,7 +5141,7 @@
         var manual = [];
         var fields = {};
 // ----- The user's own edits (edits.json): rows edited or removed, and names changed -----
-        var edits = { edited: {}, removed: [], names: {} };
+        var edits = { edited: {}, removed: [], names: {}, headers: {} };
         var registry = {};
         var manualShown = [];
         // A row is identified by its original main text, so an edit follows it wherever it shows.
@@ -5179,8 +5292,11 @@
               return Object.assign({}, x, { title: primary(x.title, x.how), how: secondaryOf(x.title, x.how) });
             });
           D.deliverables = D.baseDeliverables.map(function (e) {
+            var h = headerOf("del:" + e.id);
             return Object.assign({}, e, {
               title: nameOf("del:" + e.id, e.title),
+              summary: h.description || e.summary,
+              members: h.members || e.members,
               groups: (e.groups || []).map(function (g) {
                 return Object.assign({}, g, { entries: entriesOf(g.entries) });
               }),
@@ -5189,7 +5305,11 @@
           D.project = Object.assign({}, D.baseProject, {
             projects: (D.baseProject.projects || []).map(function (pr) {
               var newOne = nameOf("proj:" + pr.id, "");
+              var h = headerOf("proj:" + pr.id);
               return Object.assign({}, pr, {
+                type: h.type || pr.type,
+                description: h.description || pr.description,
+                url: h.url || pr.url,
                 name: newOne || pr.name,
                 shortName: newOne || pr.shortName,
                 entries: entriesOf(pr.entries),
@@ -5387,6 +5507,12 @@
           if (pr.type)
             wrap.appendChild(el("div", { class: "props" }, [el("span", { class: "kind", text: pr.type })]));
           if (pr.description) wrap.appendChild(el("p", { class: "lead", text: pr.description }));
+          var projectForm = detailsForm("project", {
+            type: pr.type === "Added by you" ? "" : pr.type,
+            description: pr.description,
+            url: pr.url,
+          });
+          if (projectForm) wrap.appendChild(projectForm);
           var ofProject = D.items.filter(function (p) {
             return p.project === pr.id;
           });
@@ -8407,13 +8533,22 @@
         }
         // The page of an item the owner created: everything on it is added by hand.
         function viewExtra(x) {
+          var h = headerOf("own:" + x.id);
           if (x.block === "proj")
-            return viewProjectPage({ id: "x" + x.id, name: x.name, type: "Added by you", entries: [] });
+            return viewProjectPage({
+              id: "x" + x.id,
+              name: x.name,
+              type: h.type || "Added by you",
+              description: h.description || "",
+              url: h.url || "",
+              entries: [],
+            });
           return viewDeliverable({
             id: "x" + x.id,
             title: x.name,
             type: x.block === "grp" ? "group" : "",
-            summary: "Added by you. Use “Add manually” to fill it.",
+            summary: h.description || "Added by you. Use “Add manually” to fill it.",
+            members: h.members || "",
             groups: [],
           });
         }
@@ -8949,7 +9084,7 @@
           request("edits").then(
             function (a) {
               if (a && typeof a === "object")
-                edits = { edited: a.edited || {}, removed: a.removed || [], names: a.names || {} };
+                edits = { edited: a.edited || {}, removed: a.removed || [], names: a.names || {}, headers: a.headers || {} };
               merge();
               renderIfIdle();
             },

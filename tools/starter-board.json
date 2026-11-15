@@ -1,0 +1,85 @@
+{
+  "project": {
+    "name": "Shielded Labs",
+    "projects": [
+      {
+        "id": "nsm",
+        "shortName": "NSM",
+        "name": "Network Sustainability Mechanism (NSM)",
+        "type": "Issuance mechanism",
+        "description": "Improve the long-term sustainability of the 21 million coin cap.",
+        "url": "https://shieldedlabs.net/nsm/",
+        "icon": "leaf",
+        "entries": []
+      },
+      {
+        "id": "crosslink",
+        "shortName": "Crosslink",
+        "name": "Crosslink",
+        "type": "Consensus R&D",
+        "description": "Upgrade Zcash's long-term security by combining Proof of Work and Proof of Stake.",
+        "url": "https://shieldedlabs.net/crosslink/",
+        "icon": "nodes",
+        "entries": []
+      },
+      {
+        "id": "fees",
+        "shortName": "Dynamic Fees",
+        "name": "Dynamic Fees",
+        "type": "Fee proposal",
+        "description": "Develop market-driven, comparable-based transaction fee mechanics.",
+        "url": "https://shieldedlabs.net/fees/",
+        "icon": "trend",
+        "entries": []
+      },
+      {
+        "id": "zero",
+        "shortName": "Zero",
+        "name": "Zero",
+        "type": "Infrastructure software",
+        "description": "Open-source Zcash infrastructure software for exchanges, mining pools and wallet providers.",
+        "url": "https://shieldedlabs.net/zero/",
+        "icon": "server",
+        "entries": []
+      },
+      {
+        "id": "ironwood",
+        "shortName": "Ironwood",
+        "name": "Ironwood",
+        "type": "Network upgrade · NU6.3",
+        "description": "A new shielded pool that restores the integrity of Zcash's circulating supply.",
+        "url": "https://shieldedlabs.net/ironwood/",
+        "icon": "rise",
+        "entries": []
+      },
+      {
+        "id": "epoch",
+        "shortName": "Epoch",
+        "name": "Epoch",
+        "type": "Cryptography research",
+        "description": "Develop high-assurance post-quantum cryptography for Zcash, with formal verification.",
+        "url": "https://shieldedlabs.net/epoch-future-proof-cryptography-for-zcash/",
+        "icon": "lock",
+        "entries": []
+      }
+    ],
+    "links": [
+      {
+        "label": "Website",
+        "url": "https://shieldedlabs.net"
+      },
+      {
+        "label": "GitHub",
+        "url": "https://github.com/ShieldedLabs"
+      },
+      {
+        "label": "X",
+        "url": "https://x.com/ShieldedLabs"
+      },
+      {
+        "label": "LinkedIn",
+        "url": "https://www.linkedin.com/company/shielded-labs"
+      }
+    ]
+  }
+}

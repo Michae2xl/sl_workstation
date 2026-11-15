@@ -6,7 +6,8 @@ dates, notes, links, and a page for each project or team chat you care about.
 ![The welcome screen: a desk with a laptop, a monitor, a black cat and the Shielded Labs shield](docs/welcome.gif)
 
 It is a personal tool, not a team system. Everyone gets an empty board and
-fills it their own way.
+fills it their own way. The only things set up from the start are the public
+Shielded Labs projects, each with its link.
 
 ## Private by design
 
@@ -26,12 +27,15 @@ fills it their own way.
     list. Read-only.
 - **Secrets stay in the macOS Keychain.** Your API key, GitHub token and
   calendar address are never written to a file.
-- **This repository has no one's data.** It holds the code and an empty
-  board. Personal files are listed in `.gitignore`.
+- **This repository has no one's data.** It holds the code and a starter
+  board with public reference only (`tools/starter-board.json`: the list of
+  projects and their links). Personal files are listed in `.gitignore`.
 
 ## Yours to shape
 
 - Create your own projects, deliverables and team chats.
+- Set what the header of each one shows (type, description, link, members)
+  with **Edit details**.
 - Rename anything, hide what you do not use, and drag the menu into your order.
 - Edit or remove any row.
 - Each person you mention gets a colour of their own, automatically.

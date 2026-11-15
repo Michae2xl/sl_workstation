@@ -253,20 +253,23 @@ struct BoardFiles {
             "edited": value["edited"] as? [String: Any] ?? [String: Any](),
             "removed": value["removed"] as? [Any] ?? [Any](),
             "names": value["names"] as? [String: Any] ?? [String: Any](),
+            "headers": value["headers"] as? [String: Any] ?? [String: Any](),
         ]
     }
 
-    /// The owner's own edits: rows edited or removed, and names changed in the menu.
+    /// The owner's own edits: rows edited or removed, names changed in the menu, and the details shown
+    /// in the header of a page (type, description, link, members).
     func saveEdits(_ body: Any?) throws -> Any {
         guard let received = body as? [String: Any] else { throw BoardError.invalid("expected an object") }
         let edited = received["edited"] as? [String: Any] ?? [:]
         let removed = received["removed"] as? [String] ?? []
         let names = received["names"] as? [String: Any] ?? [:]
+        let headers = received["headers"] as? [String: Any] ?? [:]
         func matches(_ text: String, _ pattern: String) -> Bool {
             text.range(of: pattern, options: .regularExpression) != nil
         }
         let rowKey = #"^k[a-z0-9]{1,13}$"#
-        guard edited.count <= 5000, removed.count <= 5000, names.count <= 300,
+        guard edited.count <= 5000, removed.count <= 5000, names.count <= 300, headers.count <= 300,
             received["removed"] == nil || received["removed"] is [String],
             removed.allSatisfy({ matches($0, rowKey) })
         else { throw BoardError.invalid("the edits are not valid") }
@@ -291,7 +294,35 @@ struct BoardFiles {
             else { throw BoardError.invalid("a name is not valid") }
             cleanNames[key] = name
         }
-        let clean: [String: Any] = ["edited": cleaned, "removed": Array(Set(removed)).sorted(), "names": cleanNames]
+        // Header details: short texts, and a link that must be https. Empty fields are dropped.
+        let headerLimits = ["type": 40, "description": 400, "url": 300, "members": 600]
+        var cleanHeaders: [String: [String: String]] = [:]
+        for (key, value) in headers {
+            guard matches(key, #"^[\w:-]{1,80}$"#), let fields = value as? [String: Any] else {
+                throw BoardError.invalid("the details of a page are not valid")
+            }
+            var page: [String: String] = [:]
+            for (field, raw) in fields {
+                guard let limit = headerLimits[field], let whole = raw as? String else {
+                    throw BoardError.invalid("the details of a page are not valid")
+                }
+                let text = whole.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard text.count <= limit, !text.contains("\n") else {
+                    throw BoardError.invalid("a detail of a page is too long")
+                }
+                if field == "url", !text.isEmpty {
+                    guard text.hasPrefix("https://"), let link = URL(string: text), link.host?.isEmpty == false else {
+                        throw BoardError.invalid("the link must start with https://")
+                    }
+                }
+                if !text.isEmpty { page[field] = text }
+            }
+            if !page.isEmpty { cleanHeaders[key] = page }
+        }
+        let clean: [String: Any] = [
+            "edited": cleaned, "removed": Array(Set(removed)).sorted(), "names": cleanNames,
+            "headers": cleanHeaders,
+        ]
         try save(clean, to: "edits.json")
         return clean
     }
@@ -320,12 +351,26 @@ struct BoardFiles {
         }
         try OldFormat.migrate(folder)
         guard !FileManager.default.fileExists(atPath: url("board.json").path) else { return }
-        let empty: [String: Any] = [
-            "updatedOn": BoardFiles.today(), "nextMeeting": "to be confirmed", "me": "",
+        let shipped = Bundle.main.url(forResource: "starter-board", withExtension: "json")
+            .flatMap { try? Data(contentsOf: $0) }
+        try save(BoardFiles.firstBoard(starter: shipped), to: "board.json")
+    }
+
+    /// The board a new user starts with: nothing of anyone's work, plus the public reference shipped
+    /// with the app (the list of projects and their links), if there is one.
+    static func firstBoard(starter: Data?) -> [String: Any] {
+        var board: [String: Any] = [
+            "updatedOn": today(), "nextMeeting": "to be confirmed", "me": "",
             "meetings": [Any](), "items": [Any](), "dates": [Any](), "deliverables": [Any](),
             "project": [String: Any](),
         ]
-        try save(empty, to: "board.json")
+        if let starter = starter, starter.count <= 200_000,
+            let object = try? JSONSerialization.jsonObject(with: starter) as? [String: Any],
+            let project = object["project"] as? [String: Any]
+        {
+            board["project"] = project
+        }
+        return board
     }
 
     /// One request from the page: a read (no body) or a write (with body) of one board file.
@@ -1453,6 +1498,17 @@ func selfTest(_ folder: URL) -> Int32 {
         check("saves which blocks are folded", (foldedResult?["folded"] as? [String]) == ["proj"] && (reread?["folded"] as? [String]) == ["proj"])
         let editedResult = try a.saveEdits(["edited": ["kabc123": ["t1": " New text ", "t2": ""]], "removed": ["kzz9", "kzz9"], "names": ["proj:zero": " Zero stack "]]) as? [String: Any]
         check("saves edited rows, removed rows and names, cleaned", ((editedResult?["edited"] as? [String: [String: String]])?["kabc123"]?["t1"]) == "New text" && (editedResult?["removed"] as? [String]) == ["kzz9"] && (editedResult?["names"] as? [String: String])?["proj:zero"] == "Zero stack")
+        let headerResult = try a.saveEdits(["headers": ["own:a1": ["type": " Research ", "description": "What it is.", "url": "https://example.org/x", "members": ""], "proj:zero": ["type": ""]]]) as? [String: Any]
+        let savedHeaders = headerResult?["headers"] as? [String: [String: String]]
+        check("saves the details of a page and drops empty ones", savedHeaders == ["own:a1": ["type": "Research", "description": "What it is.", "url": "https://example.org/x"]])
+        check("reads the details of a page back", ((try a.edits() as? [String: Any])?["headers"] as? [String: Any])?.count == 1)
+        refuses("refuses a page link that is not https") { try a.saveEdits(["headers": ["own:a1": ["url": "javascript:alert(1)"]]]) }
+        refuses("refuses an unknown detail of a page") { try a.saveEdits(["headers": ["own:a1": ["html": "<b>"]]]) }
+        _ = try a.saveEdits(["edited": ["kabc123": ["t1": "New text", "t2": ""]], "removed": ["kzz9"], "names": ["proj:zero": "Zero stack"]])
+        let starter = Data(#"{"me":"someone","items":[{"id":"p9"}],"project":{"name":"Org","projects":[{"id":"one","name":"One","url":"https://example.org"}]}}"#.utf8)
+        let first = BoardFiles.firstBoard(starter: starter)
+        check("a first board takes only the public reference from the starter", (first["me"] as? String) == "" && (first["items"] as? [Any])?.isEmpty == true && ((first["project"] as? [String: Any])?["projects"] as? [Any])?.count == 1)
+        check("a first board without a starter is empty", (BoardFiles.firstBoard(starter: nil)["project"] as? [String: Any])?.isEmpty == true && (BoardFiles.firstBoard(starter: Data("oops".utf8))["project"] as? [String: Any])?.isEmpty == true)
         refuses("refuses an edited row with an empty text") { try a.saveEdits(["edited": ["kabc": ["t1": "  "]]]) }
         refuses("refuses a row key that is not a row key") { try a.saveEdits(["removed": ["../x"]]) }
         refuses("refuses a menu order with odd characters") { try a.savePrefs(["hiddenKeys": [], "extras": [], "order": ["proj": ["<x>"]]]) }

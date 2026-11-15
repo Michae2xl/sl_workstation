@@ -54,8 +54,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>board</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.1</string>
-  <key>CFBundleVersion</key><string>2</string>
+  <key>CFBundleShortVersionString</key><string>1.2</string>
+  <key>CFBundleVersion</key><string>3</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppTransportSecurity</key>
@@ -66,6 +66,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 echo "Embedding the empty board..."
+# The starter holds public reference only (projects and links); a new user's board starts with it.
+cp "$FOLDER/tools/starter-board.json" "$APP/Contents/Resources/starter-board.json"
 python3 "$FOLDER/tools/build.py" --empty "$APP/Contents/Resources/board.html"
 
 codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "Note: the app was not signed (it still opens on this Mac)."
@@ -74,7 +76,7 @@ codesign --force --sign - "$APP" >/dev/null 2>&1 || echo "Note: the app was not 
 # install. So the installed app is replaced only when its code has changed. The page (board.html)
 # is read from the data folder, so a change in the page alone needs no reinstall.
 STAMP="$HERE/.installed.sha"
-CURRENT="$(cat "$HERE/main.swift" "$HERE/icon.swift" "$HERE/shield.png" | shasum -a 256 | cut -d' ' -f1)"
+CURRENT="$(cat "$HERE/main.swift" "$HERE/icon.swift" "$HERE/shield.png" "$FOLDER/tools/starter-board.json" | shasum -a 256 | cut -d' ' -f1)"
 mkdir -p "$HOME/Applications"
 if [[ " $* " == *" --no-install "* ]]; then
   echo "App built and tested; nothing was installed (--no-install)."

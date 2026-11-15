@@ -5,7 +5,8 @@ A private board for your own work: open items, decisions, notes, links,
 dates, and a page for each project or group you care about.
 
 It lives on your Mac only. There is no account and no server, and it
-starts empty: you fill it your way.
+starts empty, with only the public Shielded Labs projects and their links
+set up: you fill it your way.
 
 Install
 -------

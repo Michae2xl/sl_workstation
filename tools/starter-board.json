@@ -62,24 +62,6 @@
         "icon": "lock",
         "entries": []
       }
-    ],
-    "links": [
-      {
-        "label": "Website",
-        "url": "https://shieldedlabs.net"
-      },
-      {
-        "label": "GitHub",
-        "url": "https://github.com/ShieldedLabs"
-      },
-      {
-        "label": "X",
-        "url": "https://x.com/ShieldedLabs"
-      },
-      {
-        "label": "LinkedIn",
-        "url": "https://www.linkedin.com/company/shielded-labs"
-      }
     ]
   }
 }

@@ -28,8 +28,8 @@ Shielded Labs projects, each with its link.
 - **Secrets stay in the macOS Keychain.** Your API key, GitHub token and
   calendar address are never written to a file.
 - **This repository has no one's data.** It holds the code and a starter
-  board with public reference only (`tools/starter-board.json`: the list of
-  projects and their links). Personal files are listed in `.gitignore`.
+  board with public reference only (`tools/starter-board.json`: the six
+  Shielded Labs projects and the link of each). Personal files are listed in `.gitignore`.
 
 ## Yours to shape
 

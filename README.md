@@ -53,8 +53,21 @@ There is also one search for everything (⌘K) and a short tour on first run.
 
 ## Install
 
-You need a Mac with macOS 13 or later (Apple silicon or Intel) and the Xcode
-command line tools (`xcode-select --install`).
+You need a Mac with macOS 13 or later (Apple silicon or Intel).
+
+### Download the app
+
+1. Open the [latest release](https://github.com/Michae2xl/sl_workstation/releases/latest)
+   and download **Shielded.Labs.Workstation.zip**.
+2. Unzip it and move **Shielded Labs** to your Applications folder.
+3. Open it. The app is not signed with an Apple developer certificate, so
+   the first time macOS will block it: open System Settings > Privacy &
+   Security and click **Open Anyway**.
+4. Type your nick and follow the tour.
+
+### Or build it from the source
+
+You also need the Xcode command line tools (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/Michae2xl/sl_workstation.git
@@ -64,9 +77,6 @@ zsh tools/app/build-app.sh
 
 That compiles the app, runs its tests and installs it in `~/Applications`.
 Open **Shielded Labs**, type your nick, and follow the tour.
-
-The app is not signed with an Apple developer certificate. If macOS blocks
-it, open System Settings > Privacy & Security and click **Open Anyway**.
 
 To build a zip you can hand to someone else, without installing:
 

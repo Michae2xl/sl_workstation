@@ -40,5 +40,7 @@ Where your data is
 
 To back up or move your board, copy that folder. To start over, delete it.
 A new version of the app never touches that folder.
+To see if there is one: menu Shielded Labs > Check for Updates. The app
+only asks when you click, and sends nothing about you.
 
 Requirements: macOS 13 or later, on Apple silicon or Intel.

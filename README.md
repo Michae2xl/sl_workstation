@@ -14,6 +14,9 @@ fills it their own way.
   account, no server and no sync.
 - **Nothing is sent anywhere by default.** The app makes no network
   connection unless you turn one on yourself.
+- **Updates are checked only when you ask.** _Shielded Labs > Check for
+  Updates…_ asks GitHub for the number of the latest release. It sends
+  nothing about you or your board, and the app never checks by itself.
 - **Three optional connections, all off until you set them up:**
   - _AI assistant_: your own key for Claude, OpenAI, Grok, Gemini, or a model
     running on your Mac. The text you paste, or your question together with

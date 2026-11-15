@@ -1069,6 +1069,70 @@ struct Connections {
     }
 }
 
+// MARK: - Updates (only when the user asks)
+
+/// The app never looks for a new version by itself. "Check for Updates…" in the app menu asks GitHub
+/// for the number of the latest release, and sends nothing about the user or the board.
+enum Updates {
+    static let releasesPage = URL(string: "https://github.com/Michae2xl/sl_workstation/releases/latest")!
+    static let latestRelease = URL(
+        string: "https://api.github.com/repos/Michae2xl/sl_workstation/releases/latest")!
+    private static let session = URLSession(
+        configuration: .ephemeral, delegate: NoRedirect(), delegateQueue: nil)
+    private static let replyLimit = 1_000_000
+
+    /// "v1.2" or "1.2.0" as numbers; nil for anything that is not a plain version.
+    static func numbers(_ version: String) -> [Int]? {
+        var text = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("v") || text.hasPrefix("V") { text.removeFirst() }
+        let parts = text.split(separator: ".", omittingEmptySubsequences: false)
+        guard !parts.isEmpty, parts.count <= 4 else { return nil }
+        var out: [Int] = []
+        for part in parts {
+            guard !part.isEmpty, part.count <= 6, part.allSatisfy({ $0.isASCII && $0.isNumber }),
+                let number = Int(part)
+            else { return nil }
+            out.append(number)
+        }
+        return out
+    }
+
+    static func isNewer(_ candidate: String, than current: String) -> Bool {
+        guard let new = numbers(candidate), let old = numbers(current) else { return false }
+        for index in 0..<max(new.count, old.count) {
+            let a = index < new.count ? new[index] : 0
+            let b = index < old.count ? old[index] : 0
+            if a != b { return a > b }
+        }
+        return false
+    }
+
+    /// The request carries no token, no cookie and nothing that identifies the user.
+    static func request() -> URLRequest {
+        var request = URLRequest(url: latestRelease, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("shielded-labs-workstation", forHTTPHeaderField: "User-Agent")
+        request.httpShouldHandleCookies = false
+        return request
+    }
+
+    /// The version named by GitHub's answer, only if it reads as a plain version.
+    static func latest(from data: Data) -> String? {
+        guard data.count <= replyLimit,
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let tag = object["tag_name"] as? String, let parts = numbers(tag)
+        else { return nil }
+        return parts.map(String.init).joined(separator: ".")
+    }
+
+    static func check(completion: @escaping (String?) -> Void) {
+        session.dataTask(with: request()) { data, response, _ in
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            completion(ok ? data.flatMap(latest(from:)) : nil)
+        }.resume()
+    }
+}
+
 // MARK: - App
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate,
@@ -1135,6 +1199,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Shielded Labs", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Shielded Labs", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -1173,6 +1239,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     @objc private func reload(_ sender: Any?) { load() }
+
+    /// Runs only when the user picks it from the menu.
+    @objc private func checkForUpdates(_ sender: Any?) {
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        Updates.check { [weak self] latest in
+            DispatchQueue.main.async { self?.showUpdate(current: current, latest: latest) }
+        }
+    }
+
+    private func showUpdate(current: String, latest: String?) {
+        let alert = NSAlert()
+        guard let latest = latest else {
+            alert.messageText = "Could not check for updates."
+            alert.informativeText = "GitHub did not answer. You have version \(current). Try again later, or open the releases page."
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Open Releases Page")
+            if alert.runModal() == .alertSecondButtonReturn { NSWorkspace.shared.open(Updates.releasesPage) }
+            return
+        }
+        if Updates.isNewer(latest, than: current) {
+            alert.messageText = "Version \(latest) is available."
+            alert.informativeText = "You have version \(current). Updating the app does not touch your board."
+            alert.addButton(withTitle: "Open Download Page")
+            alert.addButton(withTitle: "Later")
+            if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(Updates.releasesPage) }
+        } else {
+            alert.messageText = "You have the latest version."
+            alert.informativeText = "Version \(current)."
+            alert.runModal()
+        }
+    }
 
     private func load() {
         guard FileManager.default.isReadableFile(atPath: page.path) else {
@@ -1456,6 +1553,13 @@ func selfTest(_ folder: URL) -> Int32 {
         Keychain.inTest = false
         refuses("refuses an AI answer that is not the expected JSON") { try AI.suggestions(from: Data("oops".utf8)) }
         refuses("refuses to ask the AI when none is connected") { try AI(files: a).request(["text": "x"]) }
+        check("reads a version with or without the v", Updates.numbers("v1.2") == [1, 2] && Updates.numbers("1.10.0") == [1, 10, 0])
+        check("refuses what is not a plain version", Updates.numbers("1.x") == nil && Updates.numbers("") == nil && Updates.numbers("1..2") == nil && Updates.numbers("latest") == nil)
+        check("knows a newer version", Updates.isNewer("1.2", than: "1.1") && Updates.isNewer("v1.10", than: "1.9") && Updates.isNewer("2.0", than: "1.9.9"))
+        check("does not call the same or an older version newer", !Updates.isNewer("1.1", than: "1.1") && !Updates.isNewer("1.1.0", than: "1.1") && !Updates.isNewer("1.0", than: "1.1") && !Updates.isNewer("junk", than: "1.1"))
+        check("reads the latest version from the answer", Updates.latest(from: Data(#"{"tag_name":"v1.2","name":"x"}"#.utf8)) == "1.2" && Updates.latest(from: Data(#"{"tag_name":"<b>"}"#.utf8)) == nil && Updates.latest(from: Data("oops".utf8)) == nil)
+        let updateRequest = Updates.request()
+        check("asks only GitHub for the latest release and sends no token", updateRequest.url?.host == "api.github.com" && updateRequest.url?.path == "/repos/Michae2xl/sl_workstation/releases/latest" && updateRequest.value(forHTTPHeaderField: "Authorization") == nil && updateRequest.httpBody == nil)
         refuses("refuses an unknown request") { try a.handle(path: "../board", write: false, body: nil) }
     } catch {
         check("unexpected error: \(error)", false)

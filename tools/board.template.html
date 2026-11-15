@@ -2336,6 +2336,13 @@
       .hero > .form.details .fld.w {
         flex: 1 1 260px;
       }
+      .hero > .form.details .cp.remove {
+        margin-left: auto;
+      }
+      .hero > .form.details .cp.remove:hover {
+        border-color: #dc2626;
+        color: #dc2626;
+      }
       .hero .form.details .hint {
         flex-basis: 100%;
         margin: 0;
@@ -4406,6 +4413,23 @@
             kind === "group" ? fld("Members", members, true) : null,
             el("button", { class: "copy", type: "button", text: "Save", on: { click: saveDetails } }),
             el("button", { class: "cp", type: "button", text: "Cancel", on: { click: closeForm } }),
+            // A page that came with the board can be taken out of the menu here; one the user
+            // created is deleted from Customize menu, where the delete can be seen for what it is.
+            key.indexOf("own:") === 0
+              ? null
+              : el("button", {
+                  class: "cp remove",
+                  type: "button",
+                  text: "Remove from menu",
+                  title: "Takes this page out of your menu and of Today. Customize menu brings it back.",
+                  on: {
+                    click: function () {
+                      state.editingHeader = null;
+                      state.view = "today";
+                      toggleHidden(key);
+                    },
+                  },
+                }),
             hint,
           ]);
         }
